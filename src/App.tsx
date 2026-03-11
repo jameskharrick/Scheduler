@@ -1,5 +1,40 @@
 import { useState, useRef, useEffect } from "react";
 
+interface Appointment {
+  id: number;
+  name: string;
+  additionalPatients: string[];
+  day: string;
+  hour: number;
+  minute: number;
+  duration: number;
+  color: string;
+  recurring: boolean;
+  location: string;
+  info: string;
+  slots: string[];
+  weekOffset?: number;
+}
+
+interface ModalState {
+  mode: "add" | "edit";
+  appt?: Appointment;
+}
+
+interface LayoutAppt extends Appointment {
+  col: number;
+  totalCols: number;
+}
+
+declare global {
+  interface Window {
+    storage: {
+      get: (key: string) => Promise<{ value: string } | null>;
+      set: (key: string, value: string) => Promise<void>;
+    };
+  }
+}
+
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const COLORS = ["#4CAF8C", "#5B8FD4", "#D4845B", "#9B6FD4", "#D4C25B", "#D45B8A"];
 const PX_PER_MIN = 2.2;
@@ -20,18 +55,18 @@ const TIME_OPTIONS = (() => {
   return opts;
 })();
 
-const toMinutes = (hour, minute) => hour * 60 + minute;
-const fromMinutes = (mins) => ({ hour: Math.floor(mins / 60), minute: mins % 60 });
+const toMinutes = (hour: number, minute: number) => hour * 60 + minute;
+const fromMinutes = (mins: number) => ({ hour: Math.floor(mins / 60), minute: mins % 60 });
 const DAY_START = toMinutes(START_HOUR, START_MINUTE);
 const DAY_END = toMinutes(END_HOUR, END_MINUTE);
 
-const formatTime = (hour, minute = 0) => {
+const formatTime = (hour: number, minute = 0) => {
   const h = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
   const m = minute.toString().padStart(2, "0");
   return `${h}:${m} ${hour >= 12 ? "PM" : "AM"}`;
 };
 
-const parseTimeInput = (val) => {
+const parseTimeInput = (val: string) => {
   val = val.trim().toUpperCase().replace(/\s+/g, " ");
   const match = val.match(/^(\d{1,2}):?(\d{0,2})\s*(AM|PM)?$/);
   if (!match) return null;
@@ -60,12 +95,12 @@ const getWeekDates = (weekOffset = 0) => {
   return DAYS.map((_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
 };
 
-const formatDate = (date) => date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const formatDate = (date: Date) => date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-const layoutAppts = (appts) => {
+const layoutAppts = (appts: Appointment[]): LayoutAppt[] => {
   const sorted = [...appts].sort((a, b) => toMinutes(a.hour, a.minute) - toMinutes(b.hour, b.minute));
   const columns = [];
-  const result = [];
+  const result: (Appointment & { col: number; totalCols?: number })[] = [];
   for (const appt of sorted) {
     const start = toMinutes(appt.hour, appt.minute), end = start + appt.duration;
     let placed = false;
@@ -83,10 +118,10 @@ const layoutAppts = (appts) => {
     }
     result[i].totalCols = maxCol + 1;
   }
-  return result;
+  return result as LayoutAppt[];
 };
 
-const getOpenSlots = (appts, day) => {
+const getOpenSlots = (appts: Appointment[], day: string) => {
   const sorted = [...appts].sort((a, b) => toMinutes(a.hour, a.minute) - toMinutes(b.hour, b.minute));
   const slots = [];
   let cursor = DAY_START;
@@ -108,18 +143,18 @@ const loadAppointments = async () => {
   } catch { return []; }
 };
 
-const saveAppointments = async (appts) => {
+const saveAppointments = async (appts: Appointment[]) => {
   try { await window.storage.set(STORAGE_KEY, JSON.stringify(appts)); } catch {}
 };
 
-function TimeDropdown({ value, onChange, error }) {
+function TimeDropdown({ value, onChange, error }: { value: string; onChange: (v: string) => void; error?: string }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState(value || "");
-  const ref = useRef();
-  const listRef = useRef();
+  const ref = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   useEffect(() => { setTyped(value || ""); }, [value]);
   useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
@@ -158,10 +193,10 @@ function TimeDropdown({ value, onChange, error }) {
   );
 }
 
-function AdditionalPatients({ patients = [], onChange }) {
+function AdditionalPatients({ patients = [], onChange }: { patients: string[]; onChange: (p: string[]) => void }) {
   const [input, setInput] = useState("");
   const add = () => { const t = input.trim(); if (!t || patients.includes(t)) return; onChange([...patients, t]); setInput(""); };
-  const remove = (name) => onChange(patients.filter(p => p !== name));
+  const remove = (name: string) => onChange(patients.filter(p => p !== name));
   return (
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
@@ -183,8 +218,8 @@ function AdditionalPatients({ patients = [], onChange }) {
   );
 }
 
-function SlotSelector({ selected = [], onChange }) {
-  const toggle = (val) => {
+function SlotSelector({ selected = [], onChange }: { selected: string[]; onChange: (s: string[]) => void }) {
+  const toggle = (val: string | number) => {
     const s = String(val);
     onChange(selected.includes(s) ? selected.filter(x => x !== s) : [...selected, s]);
   };
@@ -204,27 +239,27 @@ function SlotSelector({ selected = [], onChange }) {
 }
 
 export default function PTScheduler() {
-  const [appointments, setAppointments] = useState([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(null);
-  const [form, setForm] = useState({});
+  const [modal, setModal] = useState<ModalState | null>(null);
+  const [form, setForm] = useState<Partial<Appointment>>({});
   const [nextId, setNextId] = useState(1);
   const [activeDay, setActiveDay] = useState("Monday");
   const [view, setView] = useState("week");
   const [weekOffset, setWeekOffset] = useState(0);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [startInput, setStartInput] = useState("");
   const [endInput, setEndInput] = useState("");
   const [startError, setStartError] = useState("");
   const [endError, setEndError] = useState("");
-  const [detailAppt, setDetailAppt] = useState(null);
+  const [detailAppt, setDetailAppt] = useState<Appointment | null>(null);
   const [openSlotsExpanded, setOpenSlotsExpanded] = useState(true);
 
   // Load from storage on mount
   useEffect(() => {
     loadAppointments().then(appts => {
       setAppointments(appts);
-      if (appts.length > 0) setNextId(Math.max(...appts.map(a => a.id)) + 1);
+      if (appts.length > 0) setNextId(Math.max(...appts.map((a: Appointment) => a.id)) + 1);
       setLoading(false);
     });
   }, []);
@@ -244,7 +279,7 @@ export default function PTScheduler() {
     a.recurring ? true : (a.weekOffset === undefined ? weekOffset === 0 : a.weekOffset === weekOffset)
   );
 
-  const openAdd = (day = activeDay, startMins = null, endMins = null) => {
+  const openAdd = (day = activeDay, startMins: number | null = null, endMins: number | null = null) => {
     const defStart = DAY_START + 60;
     const sM = startMins !== null ? Math.round(startMins / 5) * 5 : defStart;
     const eM = endMins !== null ? Math.round(endMins / 5) * 5 : Math.min(sM + 60, DAY_END);
@@ -256,7 +291,7 @@ export default function PTScheduler() {
     setModal({ mode: "add" });
   };
 
-  const openEdit = (appt) => {
+  const openEdit = (appt: Appointment) => {
     const end = fromMinutes(toMinutes(appt.hour, appt.minute) + appt.duration);
     setForm({ ...appt, additionalPatients: appt.additionalPatients || [], slots: appt.slots || [] });
     setStartInput(formatTime(appt.hour, appt.minute));
@@ -267,27 +302,27 @@ export default function PTScheduler() {
   };
 
   const validateAndSave = () => {
-    let valid = true;
     const start = parseTimeInput(startInput), end = parseTimeInput(endInput);
-    if (!start) { setStartError("Enter a valid start time"); valid = false; } else setStartError("");
-    if (!end) { setEndError("Enter a valid end time"); valid = false; } else setEndError("");
-    if (start && end && toMinutes(end.hour, end.minute) <= toMinutes(start.hour, start.minute)) { setEndError("End must be after start"); valid = false; }
-    if (!form.name?.trim()) valid = false;
-    if (!valid) return;
+    if (!start || !end || !modal) return;
     const duration = toMinutes(end.hour, end.minute) - toMinutes(start.hour, start.minute);
-    const finalForm = { ...form, hour: start.hour, minute: start.minute, duration, name: form.name.trim() };
-    if (modal.mode === "add") {
-      setAppointments(prev => [...prev, { ...finalForm, id: nextId, weekOffset: finalForm.recurring ? undefined : weekOffset }]);
-      setNextId(n => n + 1);
-    } else {
-      setAppointments(prev => prev.map(a => a.id === modal.appt.id ? { ...finalForm, id: a.id, weekOffset: finalForm.recurring ? undefined : weekOffset } : a));
-    }
+    const finalForm: Appointment = {
+      ...(form as Appointment),
+      hour: start.hour,
+      minute: start.minute,
+      duration,
+      name: (form.name ?? "").trim(),
+    };
+if (modal.mode === "add") {
+  setAppointments(prev => [...prev, { ...finalForm, id: nextId, weekOffset: finalForm.recurring ? undefined : weekOffset }]);
+} else {
+  setAppointments(prev => prev.map(a => a.id === modal.appt!.id ? { ...finalForm, id: a.id, weekOffset: finalForm.recurring ? undefined : weekOffset } : a));
+}
     setModal(null);
   };
 
-  const deleteAppt = (id) => { setAppointments(prev => prev.filter(a => a.id !== id)); setDeleteConfirm(null); setModal(null); setDetailAppt(null); };
+  const deleteAppt = (id: number) => { setAppointments(prev => prev.filter(a => a.id !== id)); setDeleteConfirm(null); setModal(null); setDetailAppt(null); };
 
-  const dayAppts = (day) => visibleAppointments.filter(a => a.day === day);
+  const dayAppts = (day: string) => visibleAppointments.filter(a => a.day === day);
   const displayDays = view === "week" ? DAYS : [activeDay];
   const allOpenSlots = DAYS.flatMap(day => getOpenSlots(dayAppts(day), day));
 
@@ -295,7 +330,7 @@ export default function PTScheduler() {
   const labelStyle = { fontSize: 11, fontWeight: 600, color: "#7A8490", display: "block", marginBottom: 5, letterSpacing: 0.5, textTransform: "uppercase" };
   const inputBase = { width: "100%", padding: "9px 12px", border: "1.5px solid #E8E3DC", borderRadius: 8, fontSize: 13, color: "#1a1a1a", background: "#FAFAF8", outline: "none", fontFamily: "inherit" };
 
-  const halfHourLabels = [];
+  const halfHourLabels: { hour: number; minute: number }[] = [];
   for (let m = DAY_START; m <= DAY_END; m += 30) halfHourLabels.push(fromMinutes(m));
 
   const handlePrint = () => window.print();
@@ -467,7 +502,7 @@ export default function PTScheduler() {
                         {appt.location && <div style={{ fontSize: 9.5, color: "#888", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {appt.location}</div>}
                         {apptSlots.length > 0 && (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: 3 }}>
-                            {apptSlots.map(s => <span key={s} style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: isNaN(s) ? "#5B8FD4" : "#4CAF8C", color: "#fff" }}>{s}</span>)}
+                            {apptSlots.map(s => <span key={s} style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: isNaN(Number(s)) ? "#5B8FD4" : "#4CAF8C", color: "#fff" }}>{s}</span>)}
                           </div>
                         )}
                       </div>
@@ -552,7 +587,7 @@ export default function PTScheduler() {
                       <div style={{ fontWeight: 600, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
                         {appt.name}
                         {extras > 0 && <span style={{ fontSize: 10, color: "#5B8FD4", fontWeight: 500 }}>+{extras}</span>}
-                        {(appt.slots || []).map(s => <span key={s} style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: isNaN(s) ? "#5B8FD4" : "#4CAF8C", color: "#fff" }}>{s}</span>)}
+                        {(appt.slots || []).map(s => <span key={s} style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: isNaN(Number(s)) ? "#5B8FD4" : "#4CAF8C", color: "#fff" }}>{s}</span>)}
                         {appt.recurring && <span>🔁</span>}
                       </div>
                       <div style={{ fontSize: 10, color: "#A09A92" }}>{appt.day} · {formatTime(appt.hour, appt.minute)} – {formatTime(endT.hour, endT.minute)}{appt.location ? ` · ${appt.location}` : ""}</div>
@@ -579,7 +614,7 @@ export default function PTScheduler() {
                     {(detailAppt.additionalPatients || []).map((p, i) => <div key={i} style={{ fontSize: 12, color: "#5B8FD4", fontWeight: 500, marginTop: 1 }}>+ {p}</div>)}
                     {(detailAppt.slots || []).length > 0 && (
                       <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
-                        {detailAppt.slots.map(s => <span key={s} style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: isNaN(s) ? "#5B8FD4" : "#4CAF8C", color: "#fff" }}>{s}</span>)}
+                        {detailAppt.slots.map(s => <span key={s} style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: isNaN(Number(s)) ? "#5B8FD4" : "#4CAF8C", color: "#fff" }}>{s}</span>)}
                       </div>
                     )}
                   </div>
@@ -683,7 +718,7 @@ export default function PTScheduler() {
 
             <div style={{ display: "flex", gap: 10 }}>
               {modal.mode === "edit" && (
-                <button className="btn" onClick={() => setDeleteConfirm(modal.appt.id)} style={{ flex: 1, padding: 10, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>
+                <button className="btn" onClick={() => setDeleteConfirm(modal.appt!.id)} style={{ flex: 1, padding: 10, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>
               )}
               <button className="btn" onClick={validateAndSave} disabled={!form.name?.trim()} style={{ flex: 2, padding: 10, background: form.name?.trim() ? "#4CAF8C" : "#c8e6da", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>
                 {modal.mode === "add" ? "Add Appointment" : "Save Changes"}
