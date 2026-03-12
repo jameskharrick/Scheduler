@@ -105,8 +105,28 @@ const loadAppointments = (): Appointment[] => {
 const saveAppointments = (appts: Appointment[]) => {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appts)); } catch {}
 };
+// Default sequences: numbers start at 2, letters start at D, both on Wed Mar 11 (week 0).
+// Skipped: 3/13, 3/30–4/3, 4/6–4/10.
+const DEFAULT_SEQUENCES: SequenceState = {
+  numbers: {
+    startDay: "Wednesday", startWeekOffset: 0, startValue: 1, // index of "2" in SLOT_NUMBERS
+    skippedKeys: [
+      "Friday|0",
+      "Monday|3","Tuesday|3","Wednesday|3","Thursday|3","Friday|3",
+      "Monday|4","Tuesday|4","Wednesday|4","Thursday|4","Friday|4",
+    ],
+  },
+  letters: {
+    startDay: "Wednesday", startWeekOffset: 0, startValue: 3, // index of "D" in SLOT_LETTERS
+    skippedKeys: [
+      "Friday|0",
+      "Monday|3","Tuesday|3","Wednesday|3","Thursday|3","Friday|3",
+      "Monday|4","Tuesday|4","Wednesday|4","Thursday|4","Friday|4",
+    ],
+  },
+};
 const loadSequences = (): SequenceState => {
-  try { const r = localStorage.getItem(SEQUENCE_KEY); return r ? JSON.parse(r) : { numbers: null, letters: null }; } catch { return { numbers: null, letters: null }; }
+  try { const r = localStorage.getItem(SEQUENCE_KEY); return r ? JSON.parse(r) : DEFAULT_SEQUENCES; } catch { return DEFAULT_SEQUENCES; }
 };
 const saveSequences = (seq: SequenceState) => {
   try { localStorage.setItem(SEQUENCE_KEY, JSON.stringify(seq)); } catch {}
