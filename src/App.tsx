@@ -331,8 +331,8 @@ function DayHeaderModal({ day, weekOffset, sequences, computedLabels, onStartNum
   const sh: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: "#7A8490", letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 };
   const labelPill = (l: string) => <span key={l} style={{ fontSize: 12, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: isNaN(Number(l)) ? "#5B8FD4" : "#4CAF8C", color: "#fff" }}>{l}</span>;
 
-  const SeqSection = ({ type, accentColor, seqConfig, isStart, isSkipped, label, values, onStart, onToggleSkipThis, onClear, title }: {
-    type: "numbers" | "letters"; accentColor: string; seqConfig: SequenceConfig | null;
+  const SeqSection = ({ accentColor, seqConfig, isStart, isSkipped, label, values, onStart, onToggleSkipThis, onClear, title }: {
+    type?: "numbers" | "letters"; accentColor: string; seqConfig: SequenceConfig | null;
     isStart: boolean; isSkipped: boolean; label: string | null; values: string[];
     onStart: (sv: number) => void; onToggleSkipThis: () => void; onClear: () => void; title: string;
   }) => (
