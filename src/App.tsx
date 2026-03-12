@@ -99,17 +99,17 @@ declare global {
 const STORAGE_KEY = "pt-scheduler-appointments-v2";
 const SEQUENCE_KEY = "pt-scheduler-sequences";
 
-const loadAppointments = async (): Promise<Appointment[]> => {
-  try { const r = await window.storage.get(STORAGE_KEY, false); return r ? JSON.parse(r.value) : []; } catch { return []; }
+const loadAppointments = (): Appointment[] => {
+  try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
 };
-const saveAppointments = async (appts: Appointment[]) => {
-  try { await window.storage.set(STORAGE_KEY, JSON.stringify(appts), false); } catch {}
+const saveAppointments = (appts: Appointment[]) => {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appts)); } catch {}
 };
-const loadSequences = async (): Promise<SequenceState> => {
-  try { const r = await window.storage.get(SEQUENCE_KEY, false); return r ? JSON.parse(r.value) : { numbers: null, letters: null }; } catch { return { numbers: null, letters: null }; }
+const loadSequences = (): SequenceState => {
+  try { const r = localStorage.getItem(SEQUENCE_KEY); return r ? JSON.parse(r) : { numbers: null, letters: null }; } catch { return { numbers: null, letters: null }; }
 };
-const saveSequences = async (seq: SequenceState) => {
-  try { await window.storage.set(SEQUENCE_KEY, JSON.stringify(seq), false); } catch {}
+const saveSequences = (seq: SequenceState) => {
+  try { localStorage.setItem(SEQUENCE_KEY, JSON.stringify(seq)); } catch {}
 };
 
 // ── Pure helpers ─────────────────────────────────────────────────────────────
@@ -461,16 +461,16 @@ export default function PTScheduler() {
   useEffect(() => { sequencesRef.current = sequences; }, [sequences]);
 
   useEffect(() => {
-    Promise.all([loadAppointments(), loadSequences()]).then(([appts, seqs]) => {
-      // Strip any stored copies from old data model (sourceId = stored copy) — keep only sources
-      const sources = appts.filter((a: Appointment) => !a.sourceId);
-      setAppointments(sources);
-      setSequences(seqs);
-      sequencesRef.current = seqs;
-      const maxId = sources.length > 0 ? Math.max(...sources.map((a: Appointment) => a.id)) + 1 : 1;
-      nextIdRef.current = maxId;
-      setLoading(false);
-    });
+    const appts = loadAppointments();
+    const seqs = loadSequences();
+    // Strip any stored copies from old data model (sourceId = stored copy) — keep only sources
+    const sources = appts.filter((a: Appointment) => !a.sourceId);
+    setAppointments(sources);
+    setSequences(seqs);
+    sequencesRef.current = seqs;
+    const maxId = sources.length > 0 ? Math.max(...sources.map((a: Appointment) => a.id)) + 1 : 1;
+    nextIdRef.current = maxId;
+    setLoading(false);
   }, []);
 
   useEffect(() => { if (!loading) saveAppointments(appointments); }, [appointments, loading]);
@@ -619,6 +619,10 @@ export default function PTScheduler() {
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
         .print-only { display: none; }
+        @media (max-width: 640px) {
+          .print-btn-text { display: none; }
+          .new-appt-text { display: none; }
+        }
       `}</style>
 
       <div className="print-only" style={{ padding: "16px 28px 8px", borderBottom: "2px solid #1C2B3A", marginBottom: 16 }}>
@@ -627,29 +631,29 @@ export default function PTScheduler() {
       </div>
 
       {/* Header */}
-      <div className="no-print" style={{ background: "#1C2B3A", padding: "0 28px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, gap: 12 }}>
+      <div className="no-print" style={{ background: "#1C2B3A", padding: "10px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 64, gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#4CAF8C,#5B8FD4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🩺</div>
           <div>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, color: "#fff" }}>PT Scheduler</div>
-            <div style={{ fontSize: 10, color: "#7A9BB5", letterSpacing: 0.5 }}>Physical Therapy Practice</div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, color: "#fff" }}>Kaylea's Appointment Scheduler</div>
+            <div style={{ fontSize: 10, color: "#7A9BB5", letterSpacing: 0.5 }}>Made by her favorite brother-in-law.</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#2A3E51", borderRadius: 8, padding: "5px 10px" }}>
+            {!isCurrentWeek && <button className="btn" onClick={() => setWeekOffset(0)} style={{ background: "rgba(255,255,255,0.08)", color: "#7A9BB5", padding: "3px 8px", borderRadius: 6, fontSize: 11, marginRight: 2 }}>Today</button>}
             <button className="btn" onClick={() => setWeekOffset(w => w - 1)} style={{ background: "none", color: "#7A9BB5", fontSize: 15, padding: "0 3px" }}>‹</button>
             <span style={{ fontSize: 12, color: "#fff", fontWeight: 500, minWidth: 86, textAlign: "center" }}>{weekLabel}</span>
             <button className="btn" onClick={() => setWeekOffset(w => w + 1)} style={{ background: "none", color: "#7A9BB5", fontSize: 15, padding: "0 3px" }}>›</button>
           </div>
-          {!isCurrentWeek && <button className="btn" onClick={() => setWeekOffset(0)} style={{ background: "#2A3E51", color: "#7A9BB5", padding: "6px 10px", borderRadius: 8, fontSize: 11 }}>Today</button>}
           <div style={{ display: "flex", background: "#2A3E51", borderRadius: 8, padding: 3 }}>
             {["week", "day"].map(v => (
               <button key={v} className="btn" onClick={() => setView(v)} style={{ padding: "5px 14px", borderRadius: 6, fontSize: 12, fontWeight: 500, background: view === v ? "#4CAF8C" : "transparent", color: view === v ? "#fff" : "#7A9BB5", border: "none" }}>{v === "week" ? "Week" : "Day"}</button>
             ))}
           </div>
-          <button className="btn" onClick={() => window.print()} style={{ background: "#2A3E51", color: "#7A9BB5", padding: "7px 14px", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>🖨️ Print</button>
+          <button className="btn" onClick={() => window.print()} style={{ background: "#2A3E51", color: "#7A9BB5", padding: "7px 14px", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>🖨️<span className="print-btn-text"> Print</span></button>
           <button className="btn" onClick={() => openAdd(activeDay)} style={{ background: "#4CAF8C", color: "#fff", padding: "7px 16px", borderRadius: 8, fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ fontSize: 15 }}>+</span> New Appointment
+            <span style={{ fontSize: 15 }}>+</span><span className="new-appt-text"> New Appointment</span>
           </button>
         </div>
       </div>
