@@ -71,6 +71,8 @@ interface Appointment {
   slots: string[];       // labels this appt "belongs to" — copies appear on any labeled day
   weekOffset?: number;   // undefined = recurring (all weeks); number = specific week only
   sourceId?: number;     // set on virtual copies to point to their source
+  skippedWeeks?: number[]; // week offsets where this recurring appt has been individually deleted
+  skippedCopyKeys?: string[]; // "day|weekOffset" keys where a label-copy of this appt has been individually deleted
 }
 
 interface LayoutAppt extends Appointment { col: number; totalCols: number; }
@@ -178,6 +180,7 @@ function getApptsForDayWeek(
   const direct = allAppts.filter(a => {
     if (a.sourceId) return false; // stored copies no longer used
     if (a.day !== day) return false;
+    if (a.recurring && (a.skippedWeeks || []).includes(wo)) return false; // individually deleted
     return a.recurring ? true : (a.weekOffset === undefined ? wo === 0 : a.weekOffset === wo);
   });
 
@@ -195,7 +198,7 @@ function getApptsForDayWeek(
     for (const src of sources) {
       // Dedup: don't add if a direct appt with the same sourceId already exists
       const alreadyDirect = direct.some(d => d.sourceId === src.id);
-      if (!alreadyDirect) {
+      if (!alreadyDirect && !(src.skippedCopyKeys || []).includes(`${day}|${wo}`)) {
         virtual.push({ ...src, day, weekOffset: wo, recurring: false, sourceId: src.id });
       }
     }
@@ -466,7 +469,7 @@ export default function PTScheduler() {
   const [activeDay, setActiveDay] = useState("Monday");
   const [view, setView] = useState("week");
   const [weekOffset, setWeekOffset] = useState(0);
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; weekOffset: number; isRecurring: boolean; isCopyAppt?: boolean; copyDay?: string } | null>(null);
   const [startInput, setStartInput] = useState("");
   const [endInput, setEndInput] = useState("");
   const [startError, setStartError] = useState("");
@@ -592,8 +595,19 @@ export default function PTScheduler() {
     setModal(null);
   };
 
-  const deleteAppt = (id: number) => {
-    setAppointments(prev => prev.filter(a => a.id !== id));
+  const deleteAppt = (id: number, mode: "one" | "all", wo: number, isCopyAppt?: boolean, copyDay?: string) => {
+    if (mode === "all") {
+      setAppointments(prev => prev.filter(a => a.id !== id));
+    } else if (isCopyAppt && copyDay) {
+      const key = `${copyDay}|${wo}`;
+      setAppointments(prev => prev.map(a =>
+        a.id === id ? { ...a, skippedCopyKeys: [...(a.skippedCopyKeys || []), key] } : a
+      ));
+    } else {
+      setAppointments(prev => prev.map(a =>
+        a.id === id ? { ...a, skippedWeeks: [...(a.skippedWeeks || []), wo] } : a
+      ));
+    }
     setDeleteConfirm(null); setModal(null); setDetailAppt(null);
   };
 
@@ -904,7 +918,8 @@ export default function PTScheduler() {
                 {detailAppt.info && <div style={{ padding: "10px 12px", background: "#F8F6F3", borderRadius: 8, lineHeight: 1.5 }}>{detailAppt.info}</div>}
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-                {!isCopy && <button className="btn" onClick={() => setDeleteConfirm(detailAppt.id)} style={{ flex: 1, padding: 9, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>}
+                {!isCopy && <button className="btn" onClick={() => setDeleteConfirm({ id: detailAppt.id, weekOffset, isRecurring: detailAppt.recurring })} style={{ flex: 1, padding: 9, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>}
+                {isCopy && sourceAppt && <button className="btn" onClick={() => setDeleteConfirm({ id: sourceAppt.id, weekOffset, isRecurring: false, isCopyAppt: true, copyDay: detailAppt.day })} style={{ flex: 1, padding: 9, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>}
                 <button className="btn" onClick={() => openEdit(detailAppt)} style={{ flex: 2, padding: 9, background: "#4CAF8C", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>{isCopy ? "Edit source" : "Edit"}</button>
               </div>
             </div>
@@ -974,7 +989,7 @@ export default function PTScheduler() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              {modal.mode === "edit" && <button className="btn" onClick={() => setDeleteConfirm(modal.appt!.id)} style={{ flex: 1, padding: 10, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>}
+              {modal.mode === "edit" && <button className="btn" onClick={() => setDeleteConfirm({ id: modal.appt!.id, weekOffset, isRecurring: modal.appt!.recurring })} style={{ flex: 1, padding: 10, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>}
               <button className="btn" onClick={validateAndSave} disabled={!form.name?.trim()} style={{ flex: 2, padding: 10, background: form.name?.trim() ? "#4CAF8C" : "#c8e6da", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>
                 {modal.mode === "add" ? "Add Appointment" : "Save Changes"}
               </button>
@@ -989,11 +1004,27 @@ export default function PTScheduler() {
           <div className="modal-box" style={{ background: "#fff", borderRadius: 14, padding: 26, maxWidth: 340, width: "100%", textAlign: "center" }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>🗑️</div>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, marginBottom: 7 }}>Delete Appointment?</div>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 22 }}>This action cannot be undone.</div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: 10, background: "#F3EFE9", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
-              <button className="btn" onClick={() => deleteAppt(deleteConfirm)} style={{ flex: 1, padding: 10, background: "#D45B5B", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>
-            </div>
+            <div style={{ fontSize: 12, color: "#888", marginBottom: (deleteConfirm.isRecurring || deleteConfirm.isCopyAppt) ? 16 : 22 }}>This action cannot be undone.</div>
+            {deleteConfirm.isRecurring && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "one", deleteConfirm.weekOffset)} style={{ padding: 10, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete This Week Only</button>
+                <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "all", deleteConfirm.weekOffset)} style={{ padding: 10, background: "#D45B5B", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete All Instances</button>
+                <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ padding: 10, background: "#F3EFE9", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
+              </div>
+            )}
+            {deleteConfirm.isCopyAppt && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "one", deleteConfirm.weekOffset, true, deleteConfirm.copyDay)} style={{ padding: 10, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete This Week Only</button>
+                <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "all", deleteConfirm.weekOffset)} style={{ padding: 10, background: "#D45B5B", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete All Instances</button>
+                <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ padding: 10, background: "#F3EFE9", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
+              </div>
+            )}
+            {!deleteConfirm.isRecurring && !deleteConfirm.isCopyAppt && (
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: 10, background: "#F3EFE9", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
+                <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "all", deleteConfirm.weekOffset)} style={{ flex: 1, padding: 10, background: "#D45B5B", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>
+              </div>
+            )}
           </div>
         </div>
       )}
