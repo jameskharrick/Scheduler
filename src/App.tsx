@@ -73,10 +73,12 @@ interface Appointment {
   sourceId?: number;     // set on virtual copies to point to their source
   skippedWeeks?: number[]; // week offsets where this recurring appt has been individually deleted
   skippedCopyKeys?: string[]; // "day|weekOffset" keys where a label-copy of this appt has been individually deleted
+  isStandaloneInstance?: boolean; // saved "this instance only" — keeps slots for display but won't generate further copies
 }
 
 interface LayoutAppt extends Appointment { col: number; totalCols: number; }
-interface ModalState { mode: "add" | "edit"; appt?: Appointment; }
+interface ModalState { mode: "add" | "edit"; appt?: Appointment; isCopyEdit?: boolean; copyDay?: string; instanceWeekOffset?: number; }
+interface SaveConfirmState { finalForm: Appointment; editingAppt: Appointment; isCopyEdit: boolean; copyDay?: string; instanceWeekOffset: number; }
 
 interface SequenceConfig {
   startDay: string;
@@ -190,8 +192,9 @@ function getApptsForDayWeek(
   if (dayLabels.length > 0) {
     // Source = non-copy appointment on a DIFFERENT day that has a matching slot label
     const sources = allAppts.filter(a => {
-      if (a.sourceId) return false;      // no copies of copies
-      if (a.day === day) return false;   // already showing directly
+      if (a.sourceId) return false;             // no copies of copies
+      if (a.isStandaloneInstance) return false; // standalone instances don't generate copies
+      if (a.day === day) return false;          // already showing directly
       if ((a.slots || []).length === 0) return false;
       return dayLabels.some(l => (a.slots || []).includes(l));
     });
@@ -470,6 +473,7 @@ export default function PTScheduler() {
   const [view, setView] = useState("week");
   const [weekOffset, setWeekOffset] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; weekOffset: number; isRecurring: boolean; isCopyAppt?: boolean; copyDay?: string } | null>(null);
+  const [saveConfirm, setSaveConfirm] = useState<SaveConfirmState | null>(null);
   const [startInput, setStartInput] = useState("");
   const [endInput, setEndInput] = useState("");
   const [startError, setStartError] = useState("");
@@ -560,15 +564,15 @@ export default function PTScheduler() {
   };
 
   const openEdit = (appt: Appointment) => {
-    // If this is a virtual copy, edit the source instead
-    const source = appt.sourceId ? appointments.find(a => a.id === appt.sourceId) : appt;
+    const isCopy = !!appt.sourceId;
+    const source = isCopy ? appointments.find(a => a.id === appt.sourceId) : appt;
     if (!source) return;
     const end = fromMinutes(toMinutes(source.hour, source.minute) + source.duration);
     setForm({ ...source, additionalPatients: source.additionalPatients || [], slots: source.slots || [] });
     setStartInput(formatTime(source.hour, source.minute));
     setEndInput(formatTime(end.hour, end.minute));
     setStartError(""); setEndError("");
-    setModal({ mode: "edit", appt: source });
+    setModal({ mode: "edit", appt: source, isCopyEdit: isCopy, copyDay: isCopy ? appt.day : undefined, instanceWeekOffset: appt.weekOffset ?? weekOffset });
     setDetailAppt(null);
   };
 
@@ -588,11 +592,39 @@ export default function PTScheduler() {
       return;
     }
     const editingAppt = modal.appt!;
+    // For copy edits or recurring appointments, ask the user about scope before saving
+    if (modal.isCopyEdit || editingAppt.recurring) {
+      setSaveConfirm({ finalForm, editingAppt, isCopyEdit: !!modal.isCopyEdit, copyDay: modal.copyDay, instanceWeekOffset: modal.instanceWeekOffset ?? weekOffset });
+      return;
+    }
     setAppointments(prev => prev.map(a => a.id === editingAppt.id
       ? { ...finalForm, id: a.id, weekOffset: finalForm.recurring ? undefined : (a.weekOffset ?? weekOffset) }
       : a
     ));
     setModal(null);
+  };
+
+  const commitSave = (scope: "one" | "all") => {
+    if (!saveConfirm) return;
+    const { finalForm, editingAppt, isCopyEdit, copyDay, instanceWeekOffset } = saveConfirm;
+    if (scope === "all") {
+      setAppointments(prev => prev.map(a => a.id === editingAppt.id
+        ? { ...finalForm, id: a.id, day: isCopyEdit ? editingAppt.day : finalForm.day, weekOffset: finalForm.recurring ? undefined : (a.weekOffset ?? weekOffset) }
+        : a
+      ));
+    } else {
+      const targetDay = isCopyEdit ? (copyDay ?? finalForm.day) : finalForm.day;
+      const newAppt: Appointment = { ...finalForm, id: getNextId(), day: targetDay, weekOffset: instanceWeekOffset, recurring: false, isStandaloneInstance: true, skippedWeeks: undefined, skippedCopyKeys: undefined, sourceId: undefined };
+      if (isCopyEdit && copyDay) {
+        const key = `${copyDay}|${instanceWeekOffset}`;
+        setAppointments(prev => [...prev.map(a => a.id === editingAppt.id ? { ...a, skippedCopyKeys: [...(a.skippedCopyKeys || []), key] } : a), newAppt]);
+      } else {
+        setAppointments(prev => [...prev.map(a => a.id === editingAppt.id ? { ...a, skippedWeeks: [...(a.skippedWeeks || []), instanceWeekOffset] } : a), newAppt]);
+      }
+    }
+    setSaveConfirm(null);
+    setModal(null);
+    setDetailAppt(null);
   };
 
   const deleteAppt = (id: number, mode: "one" | "all", wo: number, isCopyAppt?: boolean, copyDay?: string) => {
@@ -1025,6 +1057,24 @@ export default function PTScheduler() {
                 <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "all", deleteConfirm.weekOffset)} style={{ flex: 1, padding: 10, background: "#D45B5B", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Save scope dialog */}
+      {saveConfirm && (
+        <div className="modal-overlay no-print" style={{ position: "fixed", inset: 0, background: "rgba(28,43,58,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
+          <div className="modal-box" style={{ background: "#fff", borderRadius: 14, padding: 26, maxWidth: 340, width: "100%", textAlign: "center" }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>✏️</div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, marginBottom: 7 }}>Save Changes</div>
+            <div style={{ fontSize: 12, color: "#888", marginBottom: 16 }}>
+              {saveConfirm.isCopyEdit ? "This appointment appears on multiple days via labels." : "This is a recurring appointment."}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button className="btn" onClick={() => commitSave("one")} style={{ padding: 10, background: "#4CAF8C", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Save This Instance Only</button>
+              <button className="btn" onClick={() => commitSave("all")} style={{ padding: 10, background: "#5B8FD4", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Save All Instances</button>
+              <button className="btn" onClick={() => setSaveConfirm(null)} style={{ padding: 10, background: "#F3EFE9", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
+            </div>
           </div>
         </div>
       )}
