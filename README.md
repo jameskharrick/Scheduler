@@ -1,73 +1,53 @@
-# React + TypeScript + Vite
+Scheduler for Kay! 
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+I was asked to make an automated Excel speadsheet that allowed her to easily create her appointment schedule for work. 
+Excel sounded yucky, so I decided to build a new scheduler that fit exactly her use case, with the help of Claud (almost exclusively).
 
-Currently, two official plugins are available:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+# PT Scheduler
 
-## React Compiler
+A physical therapy scheduling tool for managing weekly patient appointments. Built with React, TypeScript, and Vite. Runs entirely in the browser — no backend, no account required.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the ESLint configuration
+**Appointment Management**
+- Add, edit, and delete appointments across a Mon–Fri weekly grid
+- Set name, additional patients, time, duration, location, color, and notes
+- Recurring appointments that repeat every week automatically
+- Drag and drop appointments to change day or time
+- Drag the top or bottom edge of an appointment to resize start/end time
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+**Series & Instance Control**
+- When editing or deleting a recurring appointment, choose to apply the change to this week only or all instances
+- Label-generated appointments (see below) support the same per-instance controls
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+**Label / Slot System**
+- Assign number (1–6) or letter (A–D) sequence labels to days of the week
+- Appointments tagged with a matching label automatically appear as copies on those days
+- Edit or delete individual label-generated copies without affecting the original or other instances
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+**Open Slots Panel**
+- Automatically calculates and displays open appointment slots for the week
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+**Week Navigation**
+- Browse forward and backward by week
+- "This Week" shortcut always returns to the current week
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+**Print Support**
+- Clean print layout with UI chrome hidden
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Data Storage
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+All appointments are saved to your browser's `localStorage`. No data is sent to any server. Clearing your browser's site data will erase appointments.
+
+## Tech Stack
+
+- React 19
+- TypeScript
+- Vite
+
+## Development
+
+```bash
+npm install
+npm run dev
