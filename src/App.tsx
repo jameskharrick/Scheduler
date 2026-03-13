@@ -838,9 +838,9 @@ export default function PTScheduler() {
       {/* Header */}
       <div className="no-print" style={{ background: t.headerBg, padding: "10px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 64, gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#4CAF8C,#5B8FD4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🩺</div>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#4CAF8C,#5B8FD4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>📅</div>
           <div>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, color: "#fff" }}>Kaylea's Appointment Scheduler</div>
+            <div style={{ fontFamily: "'Poppins',sans-serif", fontSize: 17, color: "#fff" }}>Kaylea's Appointment Scheduler</div>
             <div style={{ fontSize: 10, color: t.navText, letterSpacing: 0.5 }}>Made by her favorite brother-in-law.</div>
           </div>
         </div>
@@ -891,7 +891,7 @@ export default function PTScheduler() {
           <div style={{ width: 62, flexShrink: 0, marginTop: 72 }}>
             <div style={{ position: "relative", height: GRID_HEIGHT }}>
               {halfHourLabels.map((hl, i) => (
-                <div key={i} style={{ position: "absolute", top: i * 30 * PX_PER_MIN - 7, right: 8, fontSize: 10, color: i % 2 === 0 ? t.textMuted : t.textFaint, fontWeight: i % 2 === 0 ? 600 : 400, whiteSpace: "nowrap" }}>{formatTime(hl.hour, hl.minute)}</div>
+                <div key={i} style={{ position: "absolute", top: i * 30 * PX_PER_MIN - 7, right: 8, fontSize: 10, color: i % 2 === 0 ? t.textFaint : t.textMuted, fontWeight: i % 2 === 0 ? 400 : 600, whiteSpace: "nowrap" }}>{formatTime(hl.hour, hl.minute)}</div>
               ))}
             </div>
           </div>
@@ -937,7 +937,7 @@ export default function PTScheduler() {
                     openAdd(day, clickedMins, Math.min(clickedMins + 60, DAY_END));
                   }}>
                   {halfHourLabels.map((_, idx) => {
-                    const isHour = idx % 2 === 0;
+                    const isHour = idx % 2 !== 0;
                     return <div key={idx} style={{ position: "absolute", top: idx * 30 * PX_PER_MIN, left: 0, right: 0, borderTop: idx === 0 ? "none" : `1px ${isHour ? "solid" : "dashed"} ${isHour ? t.gridLine : t.gridDash}`, pointerEvents: "none" }} />;
                   })}
                   {appts.length === 0 && <div className="no-print" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}><div style={{ fontSize: 11, color: t.textVeryFaint }}>Click to add</div></div>}
