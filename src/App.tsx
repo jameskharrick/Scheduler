@@ -485,6 +485,18 @@ export default function PTScheduler() {
   const nextIdRef = useRef(1);
   const getNextId = () => { const id = nextIdRef.current; nextIdRef.current++; return id; };
   const sequencesRef = useRef<SequenceState>({ numbers: null, letters: null });
+
+  // Drag state
+  const dragCtxRef = useRef<{
+    appt: Appointment; day: string;
+    type: "move" | "resize-top" | "resize-bottom";
+    offsetMins: number;
+    previewDay: string; previewStart: number; previewEnd: number;
+  } | null>(null);
+  const dragMovedRef = useRef(false);
+  const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [dragPreview, setDragPreview] = useState<{ apptId: number; sourceDay: string; day: string; start: number; end: number; color: string } | null>(null);
+  const [pendingDrag, setPendingDrag] = useState<{ appt: Appointment; originalDay: string; newDay: string; newStart: number; newEnd: number } | null>(null);
   useEffect(() => { sequencesRef.current = sequences; }, [sequences]);
 
   useEffect(() => {
@@ -502,6 +514,79 @@ export default function PTScheduler() {
 
   useEffect(() => { if (!loading) saveAppointments(appointments); }, [appointments, loading]);
   useEffect(() => { if (!loading) saveSequences(sequences); }, [sequences, loading]);
+
+  // Attach document-level drag listeners once
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      const ctx = dragCtxRef.current;
+      if (!ctx) return;
+      dragMovedRef.current = true;
+      const startMins = toMinutes(ctx.appt.hour, ctx.appt.minute);
+      const endMins = startMins + ctx.appt.duration;
+      let targetDay = ctx.previewDay;
+      let colRect: DOMRect | null = null;
+      for (const d of DAYS) {
+        const el = columnRefs.current[d];
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (e.clientX >= rect.left && e.clientX <= rect.right) { targetDay = d; colRect = rect; break; }
+      }
+      if (!colRect) { const el = columnRefs.current[targetDay]; if (el) colRect = el.getBoundingClientRect(); }
+      if (!colRect) return;
+      const timeMins = (e.clientY - colRect.top) / PX_PER_MIN + DAY_START;
+      let newStart: number, newEnd: number;
+      if (ctx.type === "move") {
+        const dur = endMins - startMins;
+        let ns = Math.round((timeMins - ctx.offsetMins) / 5) * 5;
+        ns = Math.max(DAY_START, Math.min(DAY_END - dur, ns));
+        newStart = ns; newEnd = ns + dur;
+      } else if (ctx.type === "resize-top") {
+        let ns = Math.round(timeMins / 5) * 5;
+        ns = Math.max(DAY_START, Math.min(endMins - 15, ns));
+        newStart = ns; newEnd = endMins;
+      } else {
+        let ne = Math.round(timeMins / 5) * 5;
+        ne = Math.max(startMins + 15, Math.min(DAY_END, ne));
+        newStart = startMins; newEnd = ne;
+      }
+      ctx.previewDay = targetDay; ctx.previewStart = newStart; ctx.previewEnd = newEnd;
+      setDragPreview({ apptId: ctx.appt.id, sourceDay: ctx.day, day: targetDay, start: newStart, end: newEnd, color: ctx.appt.color });
+    };
+    const onMouseUp = () => {
+      const ctx = dragCtxRef.current;
+      if (!ctx) return;
+      const startMins = toMinutes(ctx.appt.hour, ctx.appt.minute);
+      const endMins = startMins + ctx.appt.duration;
+      const changed = ctx.previewDay !== ctx.day || ctx.previewStart !== startMins || ctx.previewEnd !== endMins;
+      if (changed) setPendingDrag({ appt: ctx.appt, originalDay: ctx.day, newDay: ctx.previewDay, newStart: ctx.previewStart, newEnd: ctx.previewEnd });
+      dragCtxRef.current = null;
+      setDragPreview(null);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => { document.removeEventListener("mousemove", onMouseMove); document.removeEventListener("mouseup", onMouseUp); };
+  }, []);
+
+  // Apply drag result
+  useEffect(() => {
+    if (!pendingDrag) return;
+    const { appt, originalDay, newDay, newStart, newEnd } = pendingDrag;
+    const newHour = Math.floor(newStart / 60), newMinute = newStart % 60, newDuration = newEnd - newStart;
+    const isCopy = !!appt.sourceId;
+    if (isCopy) {
+      const sourceId = appt.sourceId!;
+      const copyWo = appt.weekOffset ?? weekOffset;
+      const key = `${originalDay}|${copyWo}`;
+      const newAppt: Appointment = { ...appt, id: getNextId(), day: newDay, weekOffset: copyWo, hour: newHour, minute: newMinute, duration: newDuration, recurring: false, isStandaloneInstance: true, sourceId: undefined, skippedWeeks: undefined, skippedCopyKeys: undefined };
+      setAppointments(prev => [...prev.map(a => a.id === sourceId ? { ...a, skippedCopyKeys: [...(a.skippedCopyKeys || []), key] } : a), newAppt]);
+    } else if (appt.recurring) {
+      const newAppt: Appointment = { ...appt, id: getNextId(), day: newDay, weekOffset, hour: newHour, minute: newMinute, duration: newDuration, recurring: false, skippedWeeks: undefined, skippedCopyKeys: undefined };
+      setAppointments(prev => [...prev.map(a => a.id === appt.id ? { ...a, skippedWeeks: [...(a.skippedWeeks || []), weekOffset] } : a), newAppt]);
+    } else {
+      setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, day: newDay, hour: newHour, minute: newMinute, duration: newDuration } : a));
+    }
+    setPendingDrag(null);
+  }, [pendingDrag, weekOffset]);
 
   const weekDates = getWeekDates(weekOffset);
   const weekStart = getWeekStart(weekOffset);
@@ -643,6 +728,24 @@ export default function PTScheduler() {
     setDeleteConfirm(null); setModal(null); setDetailAppt(null);
   };
 
+  const handleApptMouseDown = (e: React.MouseEvent, appt: Appointment, day: string, type: "move" | "resize-top" | "resize-bottom") => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragMovedRef.current = false;
+    const startMins = toMinutes(appt.hour, appt.minute);
+    const endMins = startMins + appt.duration;
+    let offsetMins = 0;
+    if (type === "move") {
+      const colEl = columnRefs.current[day];
+      if (colEl) {
+        const rect = colEl.getBoundingClientRect();
+        offsetMins = (e.clientY - rect.top) / PX_PER_MIN - (startMins - DAY_START);
+      }
+    }
+    dragCtxRef.current = { appt, day, type, offsetMins, previewDay: day, previewStart: startMins, previewEnd: endMins };
+    setDragPreview({ apptId: appt.id, sourceDay: day, day, start: startMins, end: endMins, color: appt.color });
+  };
+
   const displayDays = view === "week" ? DAYS : [activeDay];
   // For the appointments list panel, show all source appointments visible this week
   const visibleSourceAppts = appointments.filter(a =>
@@ -666,8 +769,11 @@ export default function PTScheduler() {
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #c8c0b5; border-radius: 3px; }
-        .appt-block { transition: transform 0.12s, box-shadow 0.12s; cursor: pointer; }
+        .appt-block { transition: transform 0.12s, box-shadow 0.12s; cursor: grab; user-select: none; }
         .appt-block:hover { transform: scale(1.012); box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 10 !important; }
+        .appt-block.is-dragging { opacity: 0.35; transition: none; transform: none !important; box-shadow: none !important; }
+        .resize-handle { position: absolute; left: 0; right: 0; height: 7px; cursor: ns-resize; z-index: 4; border-radius: 3px; }
+        .resize-handle:hover { background: rgba(0,0,0,0.12); }
         .btn { transition: all 0.15s; cursor: pointer; border: none; font-family: inherit; }
         .btn:hover { opacity: 0.85; }
         .modal-overlay { animation: fadeIn 0.18s ease; }
@@ -788,8 +894,10 @@ export default function PTScheduler() {
                 </div>
 
                 {/* Grid */}
-                <div style={{ position: "relative", background: "#fff", borderRadius: 10, border: "1px solid #E8E3DC", overflow: "hidden", height: GRID_HEIGHT, cursor: "crosshair" }}
+                <div ref={el => { columnRefs.current[day] = el; }}
+                  style={{ position: "relative", background: "#fff", borderRadius: 10, border: "1px solid #E8E3DC", overflow: "hidden", height: GRID_HEIGHT, cursor: dragPreview ? "grabbing" : "crosshair" }}
                   onClick={(e) => {
+                    if (dragMovedRef.current) { dragMovedRef.current = false; return; }
                     const rect = e.currentTarget.getBoundingClientRect();
                     const clickedMins = DAY_START + Math.round((e.clientY - rect.top) / PX_PER_MIN / 5) * 5;
                     openAdd(day, clickedMins, Math.min(clickedMins + 60, DAY_END));
@@ -799,16 +907,29 @@ export default function PTScheduler() {
                     return <div key={idx} style={{ position: "absolute", top: idx * 30 * PX_PER_MIN, left: 0, right: 0, borderTop: idx === 0 ? "none" : `1px ${isHour ? "solid" : "dashed"} ${isHour ? "#EDE9E3" : "#F3F0EB"}`, pointerEvents: "none" }} />;
                   })}
                   {appts.length === 0 && <div className="no-print" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}><div style={{ fontSize: 11, color: "#C8C0B8" }}>Click to add</div></div>}
+                  {/* Drag ghost */}
+                  {dragPreview && dragPreview.day === day && (() => {
+                    const gs = fromMinutes(dragPreview.start), ge = fromMinutes(dragPreview.end);
+                    return (
+                      <div style={{ position: "absolute", top: (dragPreview.start - DAY_START) * PX_PER_MIN, height: (dragPreview.end - dragPreview.start) * PX_PER_MIN, left: 2, right: 2, background: dragPreview.color + "30", border: `2px dashed ${dragPreview.color}`, borderRadius: 5, pointerEvents: "none", zIndex: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: dragPreview.color, background: "rgba(255,255,255,0.9)", padding: "2px 6px", borderRadius: 4 }}>{formatTime(gs.hour, gs.minute)} – {formatTime(ge.hour, ge.minute)}</span>
+                      </div>
+                    );
+                  })()}
                   {laid.map((appt, apptIdx) => {
                     const top = (toMinutes(appt.hour, appt.minute) - DAY_START) * PX_PER_MIN;
                     const height = appt.duration * PX_PER_MIN;
                     const endT = fromMinutes(toMinutes(appt.hour, appt.minute) + appt.duration);
                     const colW = 100 / appt.totalCols;
                     const isCopy = !!appt.sourceId;
+                    const isBeingDragged = !!dragPreview && dragPreview.apptId === appt.id && dragPreview.sourceDay === day;
                     return (
-                      <div key={`${appt.id}-${apptIdx}`} className="appt-block"
-                        onClick={e => { e.stopPropagation(); setDetailAppt(appt); }}
+                      <div key={`${appt.id}-${apptIdx}`}
+                        className={`appt-block${isBeingDragged ? " is-dragging" : ""}`}
+                        onMouseDown={e => handleApptMouseDown(e, appt, day, "move")}
+                        onClick={e => { e.stopPropagation(); if (dragMovedRef.current) { dragMovedRef.current = false; return; } setDetailAppt(appt); }}
                         style={{ position: "absolute", top, left: `calc(${appt.col * colW}% + 2px)`, width: `calc(${colW}% - 4px)`, height, background: appt.color + (isCopy ? "18" : "1E"), borderLeft: `3px solid ${appt.color}`, borderTop: isCopy ? `2px dashed ${appt.color}` : "none", borderRadius: 5, padding: "5px 7px", overflow: "hidden", zIndex: 2 }}>
+                        <div className="resize-handle" style={{ top: 0 }} onMouseDown={e => handleApptMouseDown(e, appt, day, "resize-top")} />
                         <div style={{ fontSize: 10, color: appt.color, fontWeight: 700, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {formatTime(appt.hour, appt.minute)} – {formatTime(endT.hour, endT.minute)} {appt.recurring ? "🔁" : ""}{isCopy ? "🏷️" : ""}
                         </div>
@@ -821,6 +942,7 @@ export default function PTScheduler() {
                             {appt.slots.map(s => <span key={s} style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: isNaN(Number(s)) ? "#5B8FD4" : "#4CAF8C", color: "#fff" }}>{s}</span>)}
                           </div>
                         )}
+                        <div className="resize-handle" style={{ bottom: 0 }} onMouseDown={e => handleApptMouseDown(e, appt, day, "resize-bottom")} />
                       </div>
                     );
                   })}
