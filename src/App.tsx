@@ -482,6 +482,9 @@ export default function PTScheduler() {
   const [openSlotsExpanded, setOpenSlotsExpanded] = useState(true);
   const [dayLabelModal, setDayLabelModal] = useState<string | null>(null);
 
+  const [dark, setDark] = useState(() => localStorage.getItem("darkMode") === "1");
+  useEffect(() => { localStorage.setItem("darkMode", dark ? "1" : "0"); }, [dark]);
+
   const nextIdRef = useRef(1);
   const getNextId = () => { const id = nextIdRef.current; nextIdRef.current++; return id; };
   const sequencesRef = useRef<SequenceState>({ numbers: null, letters: null });
@@ -754,15 +757,45 @@ export default function PTScheduler() {
   const allOpenSlots = DAYS.flatMap(day => getOpenSlots(getApptsForDay(day), day));
   const GRID_HEIGHT = TOTAL_MINS * PX_PER_MIN;
 
-  const labelStyle: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "#7A8490", display: "block", marginBottom: 5, letterSpacing: 0.5, textTransform: "uppercase" };
-  const inputBase: React.CSSProperties = { width: "100%", padding: "9px 12px", border: "1.5px solid #E8E3DC", borderRadius: 8, fontSize: 13, color: "#1a1a1a", background: "#FAFAF8", outline: "none", fontFamily: "inherit" };
+  const t = {
+    bg:            dark ? "#0F172A" : "#F0EDE8",
+    surface:       dark ? "#1E293B" : "#fff",
+    surfaceAlt:    dark ? "#263040" : "#F8F6F3",
+    border:        dark ? "#334155" : "#E8E3DC",
+    borderLight:   dark ? "#1E2D3C" : "#F3EFE9",
+    text:          dark ? "#E2E8F0" : "#1a1a1a",
+    textPrimary:   dark ? "#E2E8F0" : "#1C2B3A",
+    textSub:       dark ? "#94A3B8" : "#6B7A8A",
+    textSecondary: dark ? "#94A3B8" : "#555",
+    textMuted:     dark ? "#64748B" : "#888",
+    textFaint:     dark ? "#475569" : "#A09A92",
+    textVeryFaint: dark ? "#2D3F52" : "#C8C0B8",
+    inputBg:       dark ? "#152032" : "#FAFAF8",
+    gridLine:      dark ? "#1E2D3C" : "#EDE9E3",
+    gridDash:      dark ? "#172030" : "#F3F0EB",
+    headerBg:      dark ? "#0A1628" : "#1C2B3A",
+    navBg:         dark ? "#1E293B" : "#2A3E51",
+    navText:       dark ? "#94A3B8" : "#7A9BB5",
+    overlay:       dark ? "rgba(0,0,0,0.7)"  : "rgba(28,43,58,0.4)",
+    overlayStrong: dark ? "rgba(0,0,0,0.8)"  : "rgba(28,43,58,0.6)",
+    deleteBtn:     dark ? "#2D1414" : "#FFF0EE",
+    deleteBorder:  dark ? "#4A2020" : "#F5CECE",
+    cancelBtn:     dark ? "#1E293B" : "#F3EFE9",
+    addBtnBg:      dark ? "#1A3428" : "#E8F5EF",
+    copyTagBg:     dark ? "#1A2A40" : "#EEF4FF",
+    slotBar:       dark ? "#334155" : "#E0DBD4",
+    slotDayBg:     dark ? "#152032" : "#FAFAF8",
+  };
+
+  const labelStyle: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: dark ? "#64748B" : "#7A8490", display: "block", marginBottom: 5, letterSpacing: 0.5, textTransform: "uppercase" };
+  const inputBase: React.CSSProperties = { width: "100%", padding: "9px 12px", border: `1.5px solid ${t.border}`, borderRadius: 8, fontSize: 13, color: t.text, background: t.inputBg, outline: "none", fontFamily: "inherit" };
   const halfHourLabels: { hour: number; minute: number }[] = [];
   for (let m = DAY_START; m <= DAY_END; m += 30) halfHourLabels.push(fromMinutes(m));
 
   if (loading) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "'DM Sans',sans-serif", color: "#888" }}>Loading schedule…</div>;
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", minHeight: "100vh", background: "#F0EDE8", color: "#1a1a1a" }}>
+    <div style={{ fontFamily: "'DM Sans', sans-serif", minHeight: "100vh", background: t.bg, color: t.text }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600&display=swap" rel="stylesheet" />
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -780,9 +813,9 @@ export default function PTScheduler() {
         .modal-box { animation: slideUp 0.22s ease; }
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
         @keyframes slideUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-        input, select, textarea { font-family: inherit; color: #1a1a1a; }
+        input, select, textarea { font-family: inherit; color: inherit; }
         input::placeholder, textarea::placeholder { color: #B0A89E; }
-        .open-slot-row:hover { background: #F0F7FF !important; }
+        .open-slot-row:hover { background: ${dark ? "#1A2D3E" : "#F0F7FF"} !important; }
         .day-hdr:hover { background: rgba(76,175,140,0.07) !important; border-radius: 8px; }
         @media print {
           body { background: #fff !important; }
@@ -803,27 +836,28 @@ export default function PTScheduler() {
       </div>
 
       {/* Header */}
-      <div className="no-print" style={{ background: "#1C2B3A", padding: "10px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 64, gap: 12, flexWrap: "wrap" }}>
+      <div className="no-print" style={{ background: t.headerBg, padding: "10px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 64, gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#4CAF8C,#5B8FD4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🩺</div>
           <div>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, color: "#fff" }}>Kaylea's Appointment Scheduler</div>
-            <div style={{ fontSize: 10, color: "#7A9BB5", letterSpacing: 0.5 }}>Made by her favorite brother-in-law.</div>
+            <div style={{ fontSize: 10, color: t.navText, letterSpacing: 0.5 }}>Made by her favorite brother-in-law.</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#2A3E51", borderRadius: 8, padding: "5px 10px" }}>
-            {!isCurrentWeek && <button className="btn" onClick={() => setWeekOffset(0)} style={{ background: "rgba(255,255,255,0.08)", color: "#7A9BB5", padding: "3px 8px", borderRadius: 6, fontSize: 11, marginRight: 2 }}>Today</button>}
-            <button className="btn" onClick={() => setWeekOffset(w => w - 1)} style={{ background: "none", color: "#7A9BB5", fontSize: 15, padding: "0 3px" }}>‹</button>
-            <span style={{ fontSize: 12, color: "#fff", fontWeight: 500, minWidth: 86, textAlign: "center" }}>{weekLabel}</span>
-            <button className="btn" onClick={() => setWeekOffset(w => w + 1)} style={{ background: "none", color: "#7A9BB5", fontSize: 15, padding: "0 3px" }}>›</button>
+          <button className="btn" onClick={() => setWeekOffset(0)} style={{ visibility: isCurrentWeek ? "hidden" : "visible", background: t.navBg, color: t.navText, padding: "5px 10px", borderRadius: 8, fontSize: 11 }}>Today</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: t.navBg, borderRadius: 8, padding: "5px 10px" }}>
+            <button className="btn" onClick={() => setWeekOffset(w => w - 1)} style={{ background: "none", color: t.navText, fontSize: 15, padding: "0 3px" }}>‹</button>
+            <span style={{ fontSize: 12, color: "#fff", fontWeight: 500, width: 150, textAlign: "center", display: "inline-block" }}>{weekLabel}</span>
+            <button className="btn" onClick={() => setWeekOffset(w => w + 1)} style={{ background: "none", color: t.navText, fontSize: 15, padding: "0 3px" }}>›</button>
           </div>
-          <div style={{ display: "flex", background: "#2A3E51", borderRadius: 8, padding: 3 }}>
+          <div style={{ display: "flex", background: t.navBg, borderRadius: 8, padding: 3 }}>
             {["week", "day"].map(v => (
-              <button key={v} className="btn" onClick={() => setView(v)} style={{ padding: "5px 14px", borderRadius: 6, fontSize: 12, fontWeight: 500, background: view === v ? "#4CAF8C" : "transparent", color: view === v ? "#fff" : "#7A9BB5", border: "none" }}>{v === "week" ? "Week" : "Day"}</button>
+              <button key={v} className="btn" onClick={() => setView(v)} style={{ padding: "5px 14px", borderRadius: 6, fontSize: 12, fontWeight: 500, background: view === v ? "#4CAF8C" : "transparent", color: view === v ? "#fff" : t.navText, border: "none" }}>{v === "week" ? "Week" : "Day"}</button>
             ))}
           </div>
-          <button className="btn" onClick={() => window.print()} style={{ background: "#2A3E51", color: "#7A9BB5", padding: "7px 14px", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>🖨️<span className="print-btn-text"> Print</span></button>
+          <button className="btn" onClick={() => window.print()} style={{ background: t.navBg, color: t.navText, padding: "7px 14px", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>🖨️<span className="print-btn-text"> Print</span></button>
+          <button className="btn" onClick={() => setDark(d => !d)} style={{ background: t.navBg, color: t.navText, padding: "7px 14px", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>{dark ? "☀️" : "🌙"}</button>
           <button className="btn" onClick={() => openAdd(activeDay)} style={{ background: "#4CAF8C", color: "#fff", padding: "7px 16px", borderRadius: 8, fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}>
             <span style={{ fontSize: 15 }}>+</span><span className="new-appt-text"> New Appointment</span>
           </button>
@@ -832,18 +866,18 @@ export default function PTScheduler() {
 
       {/* Day tabs (day view) */}
       {view === "day" && (
-        <div className="no-print" style={{ background: "#fff", borderBottom: "1px solid #E8E3DC", display: "flex", padding: "0 28px", overflowX: "auto" }}>
+        <div className="no-print" style={{ background: t.surface, borderBottom: `1px solid ${t.border}`, display: "flex", padding: "0 28px", overflowX: "auto" }}>
           {DAYS.map((day, i) => {
             const count = getApptsForDay(day).length;
             const date = weekDates[i];
             const isToday = isCurrentWeek && date.toDateString() === new Date().toDateString();
             const labels = getDayLabels(day);
             return (
-              <button key={day} className="btn" onClick={() => setActiveDay(day)} style={{ padding: "10px 16px", fontSize: 12, fontWeight: 600, border: "none", background: "transparent", borderBottom: activeDay === day ? "2px solid #4CAF8C" : "2px solid transparent", color: activeDay === day ? "#4CAF8C" : "#888", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
+              <button key={day} className="btn" onClick={() => setActiveDay(day)} style={{ padding: "10px 16px", fontSize: 12, fontWeight: 600, border: "none", background: "transparent", borderBottom: activeDay === day ? "2px solid #4CAF8C" : "2px solid transparent", color: activeDay === day ? "#4CAF8C" : t.textMuted, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
                 <span>{day.slice(0, 3)}</span>
-                <span style={{ fontSize: 11, color: isToday ? "#4CAF8C" : "#aaa", fontWeight: isToday ? 700 : 400 }}>{formatDate(date)}</span>
+                <span style={{ fontSize: 11, color: isToday ? "#4CAF8C" : t.textFaint, fontWeight: isToday ? 700 : 400 }}>{formatDate(date)}</span>
                 {labels.length > 0 && <div style={{ display: "flex", gap: 2 }}>{labels.map(l => <span key={l} style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: isNaN(Number(l)) ? "#5B8FD4" : "#4CAF8C", color: "#fff" }}>{l}</span>)}</div>}
-                {count > 0 && <span style={{ background: activeDay === day ? "#4CAF8C" : "#ddd", color: activeDay === day ? "#fff" : "#888", borderRadius: 10, padding: "1px 6px", fontSize: 10 }}>{count}</span>}
+                {count > 0 && <span style={{ background: activeDay === day ? "#4CAF8C" : t.border, color: activeDay === day ? "#fff" : t.textMuted, borderRadius: 10, padding: "1px 6px", fontSize: 10 }}>{count}</span>}
               </button>
             );
           })}
@@ -856,8 +890,8 @@ export default function PTScheduler() {
           {/* Time gutter */}
           <div style={{ width: 62, flexShrink: 0, marginTop: 72 }}>
             <div style={{ position: "relative", height: GRID_HEIGHT }}>
-              {halfHourLabels.map((t, i) => (
-                <div key={i} style={{ position: "absolute", top: i * 30 * PX_PER_MIN - 7, right: 8, fontSize: 10, color: i % 2 === 0 ? "#888" : "#B0A89E", fontWeight: i % 2 === 0 ? 600 : 400, whiteSpace: "nowrap" }}>{formatTime(t.hour, t.minute)}</div>
+              {halfHourLabels.map((hl, i) => (
+                <div key={i} style={{ position: "absolute", top: i * 30 * PX_PER_MIN - 7, right: 8, fontSize: 10, color: i % 2 === 0 ? t.textMuted : t.textFaint, fontWeight: i % 2 === 0 ? 600 : 400, whiteSpace: "nowrap" }}>{formatTime(hl.hour, hl.minute)}</div>
               ))}
             </div>
           </div>
@@ -881,21 +915,21 @@ export default function PTScheduler() {
                 <div style={{ height: 72, display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 6 }}>
                   <button className="btn day-hdr" onClick={() => setDayLabelModal(day)}
                     style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3, background: "transparent", border: "none", padding: "4px 8px", cursor: "pointer", flex: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: isToday ? "#4CAF8C" : "#1C2B3A", lineHeight: 1 }}>{day}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: isToday ? "#fff" : "#6B7A8A", background: isToday ? "#4CAF8C" : "transparent", borderRadius: isToday ? 6 : 0, padding: isToday ? "2px 7px" : 0, lineHeight: 1.4 }}>{formatDate(date)}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: isToday ? "#4CAF8C" : t.textPrimary, lineHeight: 1 }}>{day}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: isToday ? "#fff" : t.textSub, background: isToday ? "#4CAF8C" : "transparent", borderRadius: isToday ? 6 : 0, padding: isToday ? "2px 7px" : 0, lineHeight: 1.4 }}>{formatDate(date)}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 3, minHeight: 16, flexWrap: "wrap" }}>
-                      {(isNumStart || isLetStart) && <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: "#1C2B3A", borderRadius: 3, padding: "1px 5px" }}>▶ START</span>}
+                      {(isNumStart || isLetStart) && <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: t.textPrimary, borderRadius: 3, padding: "1px 5px" }}>▶ START</span>}
                       {labels.map(l => <span key={l} style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: isNaN(Number(l)) ? "#5B8FD4" : "#4CAF8C", color: "#fff" }}>{l}</span>)}
                       {(numSkipped || letSkipped) && <span style={{ fontSize: 9, color: "#D4845B", fontWeight: 600 }}>⊘ {numSkipped && letSkipped ? "both" : numSkipped ? "#" : "letter"}</span>}
-                      {labels.length === 0 && !numSkipped && !letSkipped && <span style={{ fontSize: 10, color: "#C8C0B8", fontStyle: "italic" }}>click to configure</span>}
+                      {labels.length === 0 && !numSkipped && !letSkipped && <span style={{ fontSize: 10, color: t.textVeryFaint, fontStyle: "italic" }}>click to configure</span>}
                     </div>
                   </button>
-                  <button className="btn" onClick={() => openAdd(day)} style={{ background: "#E8F5EF", color: "#4CAF8C", border: "none", width: 24, height: 24, borderRadius: 6, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, flexShrink: 0 }}>+</button>
+                  <button className="btn" onClick={() => openAdd(day)} style={{ background: t.addBtnBg, color: "#4CAF8C", border: "none", width: 24, height: 24, borderRadius: 6, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, flexShrink: 0 }}>+</button>
                 </div>
 
                 {/* Grid */}
                 <div ref={el => { columnRefs.current[day] = el; }}
-                  style={{ position: "relative", background: "#fff", borderRadius: 10, border: "1px solid #E8E3DC", overflow: "hidden", height: GRID_HEIGHT, cursor: dragPreview ? "grabbing" : "crosshair" }}
+                  style={{ position: "relative", background: t.surface, borderRadius: 10, border: `1px solid ${t.border}`, overflow: "hidden", height: GRID_HEIGHT, cursor: dragPreview ? "grabbing" : "crosshair" }}
                   onClick={(e) => {
                     if (dragMovedRef.current) { dragMovedRef.current = false; return; }
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -904,15 +938,15 @@ export default function PTScheduler() {
                   }}>
                   {halfHourLabels.map((_, idx) => {
                     const isHour = idx % 2 === 0;
-                    return <div key={idx} style={{ position: "absolute", top: idx * 30 * PX_PER_MIN, left: 0, right: 0, borderTop: idx === 0 ? "none" : `1px ${isHour ? "solid" : "dashed"} ${isHour ? "#EDE9E3" : "#F3F0EB"}`, pointerEvents: "none" }} />;
+                    return <div key={idx} style={{ position: "absolute", top: idx * 30 * PX_PER_MIN, left: 0, right: 0, borderTop: idx === 0 ? "none" : `1px ${isHour ? "solid" : "dashed"} ${isHour ? t.gridLine : t.gridDash}`, pointerEvents: "none" }} />;
                   })}
-                  {appts.length === 0 && <div className="no-print" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}><div style={{ fontSize: 11, color: "#C8C0B8" }}>Click to add</div></div>}
+                  {appts.length === 0 && <div className="no-print" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}><div style={{ fontSize: 11, color: t.textVeryFaint }}>Click to add</div></div>}
                   {/* Drag ghost */}
                   {dragPreview && dragPreview.day === day && (() => {
                     const gs = fromMinutes(dragPreview.start), ge = fromMinutes(dragPreview.end);
                     return (
                       <div style={{ position: "absolute", top: (dragPreview.start - DAY_START) * PX_PER_MIN, height: (dragPreview.end - dragPreview.start) * PX_PER_MIN, left: 2, right: 2, background: dragPreview.color + "30", border: `2px dashed ${dragPreview.color}`, borderRadius: 5, pointerEvents: "none", zIndex: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: dragPreview.color, background: "rgba(255,255,255,0.9)", padding: "2px 6px", borderRadius: 4 }}>{formatTime(gs.hour, gs.minute)} – {formatTime(ge.hour, ge.minute)}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: dragPreview.color, background: dark ? "rgba(15,23,42,0.9)" : "rgba(255,255,255,0.9)", padding: "2px 6px", borderRadius: 4 }}>{formatTime(gs.hour, gs.minute)} – {formatTime(ge.hour, ge.minute)}</span>
                       </div>
                     );
                   })()}
@@ -934,7 +968,7 @@ export default function PTScheduler() {
                           {formatTime(appt.hour, appt.minute)} – {formatTime(endT.hour, endT.minute)} {appt.recurring ? "🔁" : ""}{isCopy ? "🏷️" : ""}
                         </div>
                         {[appt.name, ...(appt.additionalPatients || [])].map((p, pi) => (
-                          <div key={pi} style={{ fontSize: 11, fontWeight: pi === 0 ? 700 : 500, color: pi === 0 ? "#1C2B3A" : "#555", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.4 }}>{pi > 0 ? "+ " : ""}{p}</div>
+                          <div key={pi} style={{ fontSize: 11, fontWeight: pi === 0 ? 700 : 500, color: pi === 0 ? t.textPrimary : t.textSecondary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.4 }}>{pi > 0 ? "+ " : ""}{p}</div>
                         ))}
                         {appt.location && <div style={{ fontSize: 9.5, color: "#888", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {appt.location}</div>}
                         {(appt.slots || []).length > 0 && (
@@ -955,38 +989,38 @@ export default function PTScheduler() {
 
       {/* Open Slots panel */}
       <div className="no-print" style={{ padding: "0 28px 16px" }}>
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E8E3DC", overflow: "hidden" }}>
-          <div onClick={() => setOpenSlotsExpanded(e => !e)} style={{ padding: "14px 18px", borderBottom: openSlotsExpanded ? "1px solid #F3EFE9" : "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none" }}>
+        <div style={{ background: t.surface, borderRadius: 12, border: `1px solid ${t.border}`, overflow: "hidden" }}>
+          <div onClick={() => setOpenSlotsExpanded(e => !e)} style={{ padding: "14px 18px", borderBottom: openSlotsExpanded ? `1px solid ${t.borderLight}` : "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span>🕐</span>
-              <div style={{ fontWeight: 600, fontSize: 13, color: "#1C2B3A" }}>Open Appointment Slots</div>
-              <span style={{ background: "#EEF4FF", color: "#5B8FD4", borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>{allOpenSlots.length}</span>
+              <div style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary }}>Open Appointment Slots</div>
+              <span style={{ background: t.copyTagBg, color: "#5B8FD4", borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>{allOpenSlots.length}</span>
             </div>
-            <span style={{ color: "#A09A92", fontSize: 12 }}>{openSlotsExpanded ? "▲" : "▼"}</span>
+            <span style={{ color: t.textFaint, fontSize: 12 }}>{openSlotsExpanded ? "▲" : "▼"}</span>
           </div>
           {openSlotsExpanded && (
             <div>
               {allOpenSlots.length === 0
-                ? <div style={{ padding: 24, textAlign: "center", color: "#A09A92", fontSize: 13 }}>No open slots — schedule is fully booked!</div>
+                ? <div style={{ padding: 24, textAlign: "center", color: t.textFaint, fontSize: 13 }}>No open slots — schedule is fully booked!</div>
                 : DAYS.map(day => {
                   const slots = allOpenSlots.filter(s => s.day === day);
                   if (!slots.length) return null;
                   return (
                     <div key={day}>
-                      <div style={{ padding: "8px 18px 4px", fontSize: 10, fontWeight: 700, color: "#A09A92", letterSpacing: 0.6, textTransform: "uppercase", background: "#FAFAF8", borderTop: "1px solid #F3EFE9" }}>{day}</div>
+                      <div style={{ padding: "8px 18px 4px", fontSize: 10, fontWeight: 700, color: t.textFaint, letterSpacing: 0.6, textTransform: "uppercase", background: t.slotDayBg, borderTop: `1px solid ${t.borderLight}` }}>{day}</div>
                       {slots.map((slot, si) => {
                         const dur = slot.endMins - slot.startMins;
                         const s = fromMinutes(slot.startMins), e = fromMinutes(slot.endMins);
                         return (
-                          <div key={si} className="open-slot-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 18px", borderTop: "1px solid #F7F5F2", background: "#fff" }}>
+                          <div key={si} className="open-slot-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 18px", borderTop: `1px solid ${t.borderLight}`, background: t.surface }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                              <div style={{ width: 3, height: 28, borderRadius: 2, background: "#E0DBD4" }} />
+                              <div style={{ width: 3, height: 28, borderRadius: 2, background: t.slotBar }} />
                               <div>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: "#1C2B3A" }}>{formatTime(s.hour, s.minute)} – {formatTime(e.hour, e.minute)}</div>
-                                <div style={{ fontSize: 11, color: "#A09A92" }}>{dur} min available</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary }}>{formatTime(s.hour, s.minute)} – {formatTime(e.hour, e.minute)}</div>
+                                <div style={{ fontSize: 11, color: t.textFaint }}>{dur} min available</div>
                               </div>
                             </div>
-                            <button className="btn" onClick={() => openAdd(slot.day, slot.startMins, slot.endMins)} style={{ background: "#E8F5EF", color: "#4CAF8C", border: "1.5px solid #C8E8D8", borderRadius: 7, padding: "6px 12px", fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
+                            <button className="btn" onClick={() => openAdd(slot.day, slot.startMins, slot.endMins)} style={{ background: t.addBtnBg, color: "#4CAF8C", border: `1.5px solid ${dark ? "#1A4030" : "#C8E8D8"}`, borderRadius: 7, padding: "6px 12px", fontWeight: 600, fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
                               + Add Appointment
                             </button>
                           </div>
@@ -1003,21 +1037,21 @@ export default function PTScheduler() {
 
       {/* Appointments list */}
       <div className="no-print" style={{ padding: "0 28px 28px" }}>
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E8E3DC", overflow: "hidden" }}>
-          <div style={{ padding: "14px 18px", borderBottom: "1px solid #F3EFE9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ fontWeight: 600, fontSize: 13, color: "#1C2B3A" }}>{weekLabel} — Appointments</div>
-            <div style={{ display: "flex", gap: 14, fontSize: 11, color: "#A09A92" }}>
+        <div style={{ background: t.surface, borderRadius: 12, border: `1px solid ${t.border}`, overflow: "hidden" }}>
+          <div style={{ padding: "14px 18px", borderBottom: `1px solid ${t.borderLight}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary }}>{weekLabel} — Appointments</div>
+            <div style={{ display: "flex", gap: 14, fontSize: 11, color: t.textFaint }}>
               <span>🔁 {visibleSourceAppts.filter(a => a.recurring).length} recurring</span>
               <span>📅 {visibleSourceAppts.filter(a => !a.recurring).length} this week</span>
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 1, background: "#F3EFE9" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 1, background: t.borderLight }}>
             {visibleSourceAppts.length === 0
-              ? <div style={{ gridColumn: "1/-1", padding: 28, textAlign: "center", color: "#A09A92", fontSize: 13 }}>No appointments this week.</div>
+              ? <div style={{ gridColumn: "1/-1", padding: 28, textAlign: "center", color: t.textFaint, fontSize: 13 }}>No appointments this week.</div>
               : [...visibleSourceAppts].sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || toMinutes(a.hour, a.minute) - toMinutes(b.hour, b.minute)).map(appt => {
                 const endT = fromMinutes(toMinutes(appt.hour, appt.minute) + appt.duration);
                 return (
-                  <div key={appt.id} style={{ background: "#fff", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => setDetailAppt(appt)}>
+                  <div key={appt.id} style={{ background: t.surface, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => setDetailAppt(appt)}>
                     <div style={{ width: 7, height: 7, borderRadius: "50%", background: appt.color, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
@@ -1026,7 +1060,7 @@ export default function PTScheduler() {
                         {(appt.slots || []).map(s => <span key={s} style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: isNaN(Number(s)) ? "#5B8FD4" : "#4CAF8C", color: "#fff" }}>{s}</span>)}
                         {appt.recurring && <span>🔁</span>}
                       </div>
-                      <div style={{ fontSize: 10, color: "#A09A92" }}>{appt.day} · {formatTime(appt.hour, appt.minute)} – {formatTime(endT.hour, endT.minute)}{appt.location ? ` · ${appt.location}` : ""}</div>
+                      <div style={{ fontSize: 10, color: t.textFaint }}>{appt.day} · {formatTime(appt.hour, appt.minute)} – {formatTime(endT.hour, endT.minute)}{appt.location ? ` · ${appt.location}` : ""}</div>
                     </div>
                   </div>
                 );
@@ -1042,13 +1076,13 @@ export default function PTScheduler() {
         const isCopy = !!detailAppt.sourceId;
         const sourceAppt = isCopy ? appointments.find(a => a.id === detailAppt.sourceId) : null;
         return (
-          <div className="modal-overlay no-print" onClick={() => setDetailAppt(null)} style={{ position: "fixed", inset: 0, background: "rgba(28,43,58,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 900, padding: 20 }}>
-            <div className="modal-box" onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 14, padding: 24, width: "100%", maxWidth: 380, boxShadow: "0 20px 50px rgba(0,0,0,0.18)" }}>
+          <div className="modal-overlay no-print" onClick={() => setDetailAppt(null)} style={{ position: "fixed", inset: 0, background: t.overlay, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 900, padding: 20 }}>
+            <div className="modal-box" onClick={e => e.stopPropagation()} style={{ background: t.surface, borderRadius: 14, padding: 24, width: "100%", maxWidth: 380, boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
                 <div style={{ display: "flex", gap: 10 }}>
                   <div style={{ width: 10, height: 10, borderRadius: "50%", background: detailAppt.color, flexShrink: 0, marginTop: 4 }} />
                   <div>
-                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, color: "#1C2B3A" }}>{detailAppt.name}</div>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, color: t.textPrimary }}>{detailAppt.name}</div>
                     {(detailAppt.additionalPatients || []).map((p, i) => <div key={i} style={{ fontSize: 12, color: "#5B8FD4", marginTop: 1 }}>+ {p}</div>)}
                     {(detailAppt.slots || []).length > 0 && (
                       <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
@@ -1057,23 +1091,23 @@ export default function PTScheduler() {
                     )}
                   </div>
                 </div>
-                <button className="btn" onClick={() => setDetailAppt(null)} style={{ background: "#F3EFE9", border: "none", width: 26, height: 26, borderRadius: 7, fontSize: 14, color: "#888", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
+                <button className="btn" onClick={() => setDetailAppt(null)} style={{ background: t.cancelBtn, border: "none", width: 26, height: 26, borderRadius: 7, fontSize: 14, color: t.textMuted, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12, color: "#555" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12, color: t.textSecondary }}>
                 <div style={{ display: "flex", gap: 8 }}><span>📅</span><span>{detailAppt.day} · {formatDate(weekDates[DAYS.indexOf(detailAppt.day)])}</span></div>
                 <div style={{ display: "flex", gap: 8 }}><span>🕐</span><span>{formatTime(detailAppt.hour, detailAppt.minute)} – {formatTime(endT.hour, endT.minute)} ({detailAppt.duration} min)</span></div>
                 {detailAppt.location && <div style={{ display: "flex", gap: 8 }}><span>📍</span><span>{detailAppt.location}</span></div>}
                 {detailAppt.recurring && <div style={{ display: "flex", gap: 8 }}><span>🔁</span><span>Recurring every week</span></div>}
                 {isCopy && sourceAppt && (
-                  <div style={{ padding: "7px 10px", background: "#EEF4FF", borderRadius: 7, color: "#5B8FD4", fontWeight: 500, fontSize: 11 }}>
+                  <div style={{ padding: "7px 10px", background: t.copyTagBg, borderRadius: 7, color: "#5B8FD4", fontWeight: 500, fontSize: 11 }}>
                     🏷️ Label copy — originally on {sourceAppt.day}. Editing will update the source appointment.
                   </div>
                 )}
-                {detailAppt.info && <div style={{ padding: "10px 12px", background: "#F8F6F3", borderRadius: 8, lineHeight: 1.5 }}>{detailAppt.info}</div>}
+                {detailAppt.info && <div style={{ padding: "10px 12px", background: t.surfaceAlt, borderRadius: 8, lineHeight: 1.5 }}>{detailAppt.info}</div>}
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-                {!isCopy && <button className="btn" onClick={() => setDeleteConfirm({ id: detailAppt.id, weekOffset, isRecurring: detailAppt.recurring })} style={{ flex: 1, padding: 9, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>}
-                {isCopy && sourceAppt && <button className="btn" onClick={() => setDeleteConfirm({ id: sourceAppt.id, weekOffset, isRecurring: false, isCopyAppt: true, copyDay: detailAppt.day })} style={{ flex: 1, padding: 9, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>}
+                {!isCopy && <button className="btn" onClick={() => setDeleteConfirm({ id: detailAppt.id, weekOffset, isRecurring: detailAppt.recurring })} style={{ flex: 1, padding: 9, background: t.deleteBtn, color: "#D45B5B", border: `1.5px solid ${t.deleteBorder}`, borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>}
+                {isCopy && sourceAppt && <button className="btn" onClick={() => setDeleteConfirm({ id: sourceAppt.id, weekOffset, isRecurring: false, isCopyAppt: true, copyDay: detailAppt.day })} style={{ flex: 1, padding: 9, background: t.deleteBtn, color: "#D45B5B", border: `1.5px solid ${t.deleteBorder}`, borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>}
                 <button className="btn" onClick={() => openEdit(detailAppt)} style={{ flex: 2, padding: 9, background: "#4CAF8C", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>{isCopy ? "Edit source" : "Edit"}</button>
               </div>
             </div>
@@ -1083,15 +1117,15 @@ export default function PTScheduler() {
 
       {/* Add/Edit Modal */}
       {modal && (
-        <div className="modal-overlay no-print" onClick={() => setModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(28,43,58,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 26, width: "100%", maxWidth: 480, boxShadow: "0 24px 60px rgba(0,0,0,0.2)", maxHeight: "92vh", overflowY: "auto" }}>
+        <div className="modal-overlay no-print" onClick={() => setModal(null)} style={{ position: "fixed", inset: 0, background: t.overlay, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ background: t.surface, borderRadius: 16, padding: 26, width: "100%", maxWidth: 480, boxShadow: "0 24px 60px rgba(0,0,0,0.3)", maxHeight: "92vh", overflowY: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
-              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 19, color: "#1C2B3A" }}>{modal.mode === "add" ? "New Appointment" : "Edit Appointment"}</div>
-              <button className="btn" onClick={() => setModal(null)} style={{ background: "#F3EFE9", border: "none", width: 28, height: 28, borderRadius: 7, fontSize: 15, color: "#888", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 19, color: t.textPrimary }}>{modal.mode === "add" ? "New Appointment" : "Edit Appointment"}</div>
+              <button className="btn" onClick={() => setModal(null)} style={{ background: t.cancelBtn, border: "none", width: 28, height: 28, borderRadius: 7, fontSize: 15, color: t.textMuted, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Primary Patient *</label>
-              <input value={form.name || ""} placeholder="Full name" onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={inputBase} onFocus={e => e.target.style.borderColor = "#4CAF8C"} onBlur={e => e.target.style.borderColor = "#E8E3DC"} />
+              <input value={form.name || ""} placeholder="Full name" onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={inputBase} onFocus={e => e.target.style.borderColor = "#4CAF8C"} onBlur={e => e.target.style.borderColor = t.border} />
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Additional Patients <span style={{ color: "#B0A89E", fontWeight: 400, textTransform: "none", fontSize: 10 }}>(optional)</span></label>
@@ -1117,11 +1151,11 @@ export default function PTScheduler() {
             </div>
             <div style={{ marginBottom: 14, marginTop: 14 }}>
               <label style={labelStyle}>Location <span style={{ color: "#B0A89E", fontWeight: 400, textTransform: "none", fontSize: 10 }}>(optional)</span></label>
-              <input value={form.location || ""} placeholder="e.g. Room 1, Gym, Telehealth" onChange={e => setForm(f => ({ ...f, location: e.target.value }))} style={inputBase} onFocus={e => e.target.style.borderColor = "#4CAF8C"} onBlur={e => e.target.style.borderColor = "#E8E3DC"} />
+              <input value={form.location || ""} placeholder="e.g. Room 1, Gym, Telehealth" onChange={e => setForm(f => ({ ...f, location: e.target.value }))} style={inputBase} onFocus={e => e.target.style.borderColor = "#4CAF8C"} onBlur={e => e.target.style.borderColor = t.border} />
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Appointment Info <span style={{ color: "#B0A89E", fontWeight: 400, textTransform: "none", fontSize: 10 }}>(optional)</span></label>
-              <textarea value={form.info || ""} placeholder="Notes, treatment details, goals..." rows={3} onChange={e => setForm(f => ({ ...f, info: e.target.value }))} style={{ ...inputBase, resize: "vertical", lineHeight: 1.5 }} onFocus={e => e.target.style.borderColor = "#4CAF8C"} onBlur={e => e.target.style.borderColor = "#E8E3DC"} />
+              <textarea value={form.info || ""} placeholder="Notes, treatment details, goals..." rows={3} onChange={e => setForm(f => ({ ...f, info: e.target.value }))} style={{ ...inputBase, resize: "vertical", lineHeight: 1.5 }} onFocus={e => e.target.style.borderColor = "#4CAF8C"} onBlur={e => e.target.style.borderColor = t.border} />
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Slot Labels <span style={{ color: "#B0A89E", fontWeight: 400, textTransform: "none", fontSize: 10 }}>(optional — appointment copies to days with matching label)</span></label>
@@ -1130,20 +1164,20 @@ export default function PTScheduler() {
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Color</label>
               <div style={{ display: "flex", gap: 8 }}>
-                {COLORS.map(c => <div key={c} onClick={() => setForm(f => ({ ...f, color: c }))} style={{ width: 26, height: 26, borderRadius: "50%", background: c, cursor: "pointer", border: form.color === c ? "3px solid #1C2B3A" : "3px solid transparent" }} />)}
+                {COLORS.map(c => <div key={c} onClick={() => setForm(f => ({ ...f, color: c }))} style={{ width: 26, height: 26, borderRadius: "50%", background: c, cursor: "pointer", border: form.color === c ? `3px solid ${t.textPrimary}` : "3px solid transparent" }} />)}
               </div>
             </div>
-            <div style={{ marginBottom: 22, display: "flex", alignItems: "center", justifyContent: "space-between", background: "#F8F6F3", borderRadius: 9, padding: "11px 14px" }}>
+            <div style={{ marginBottom: 22, display: "flex", alignItems: "center", justifyContent: "space-between", background: t.surfaceAlt, borderRadius: 9, padding: "11px 14px" }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#1C2B3A" }}>Recurring appointment</div>
-                <div style={{ fontSize: 10, color: "#A09A92", marginTop: 1 }}>Shows every week automatically</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary }}>Recurring appointment</div>
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 1 }}>Shows every week automatically</div>
               </div>
               <div onClick={() => setForm(f => ({ ...f, recurring: !f.recurring }))} style={{ width: 42, height: 22, borderRadius: 11, background: form.recurring ? "#4CAF8C" : "#D0CAC3", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
                 <div style={{ position: "absolute", top: 3, left: form.recurring ? 22 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
               </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              {modal.mode === "edit" && <button className="btn" onClick={() => setDeleteConfirm({ id: modal.appt!.id, weekOffset, isRecurring: modal.appt!.recurring })} style={{ flex: 1, padding: 10, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>}
+              {modal.mode === "edit" && <button className="btn" onClick={() => setDeleteConfirm({ id: modal.appt!.id, weekOffset, isRecurring: modal.appt!.recurring })} style={{ flex: 1, padding: 10, background: t.deleteBtn, color: "#D45B5B", border: `1.5px solid ${t.deleteBorder}`, borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>}
               <button className="btn" onClick={validateAndSave} disabled={!form.name?.trim()} style={{ flex: 2, padding: 10, background: form.name?.trim() ? "#4CAF8C" : "#c8e6da", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>
                 {modal.mode === "add" ? "Add Appointment" : "Save Changes"}
               </button>
@@ -1154,28 +1188,28 @@ export default function PTScheduler() {
 
       {/* Delete confirm */}
       {deleteConfirm && (
-        <div className="modal-overlay no-print" style={{ position: "fixed", inset: 0, background: "rgba(28,43,58,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
-          <div className="modal-box" style={{ background: "#fff", borderRadius: 14, padding: 26, maxWidth: 340, width: "100%", textAlign: "center" }}>
+        <div className="modal-overlay no-print" style={{ position: "fixed", inset: 0, background: t.overlayStrong, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
+          <div className="modal-box" style={{ background: t.surface, borderRadius: 14, padding: 26, maxWidth: 340, width: "100%", textAlign: "center" }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>🗑️</div>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, marginBottom: 7 }}>Delete Appointment?</div>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: (deleteConfirm.isRecurring || deleteConfirm.isCopyAppt) ? 16 : 22 }}>This action cannot be undone.</div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, marginBottom: 7, color: t.textPrimary }}>Delete Appointment?</div>
+            <div style={{ fontSize: 12, color: t.textMuted, marginBottom: (deleteConfirm.isRecurring || deleteConfirm.isCopyAppt) ? 16 : 22 }}>This action cannot be undone.</div>
             {deleteConfirm.isRecurring && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-                <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "one", deleteConfirm.weekOffset)} style={{ padding: 10, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete This Week Only</button>
+                <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "one", deleteConfirm.weekOffset)} style={{ padding: 10, background: t.deleteBtn, color: "#D45B5B", border: `1.5px solid ${t.deleteBorder}`, borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete This Week Only</button>
                 <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "all", deleteConfirm.weekOffset)} style={{ padding: 10, background: "#D45B5B", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete All Instances</button>
-                <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ padding: 10, background: "#F3EFE9", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
+                <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ padding: 10, background: t.cancelBtn, color: t.text, border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
               </div>
             )}
             {deleteConfirm.isCopyAppt && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-                <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "one", deleteConfirm.weekOffset, true, deleteConfirm.copyDay)} style={{ padding: 10, background: "#FFF0EE", color: "#D45B5B", border: "1.5px solid #F5CECE", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete This Week Only</button>
+                <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "one", deleteConfirm.weekOffset, true, deleteConfirm.copyDay)} style={{ padding: 10, background: t.deleteBtn, color: "#D45B5B", border: `1.5px solid ${t.deleteBorder}`, borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete This Week Only</button>
                 <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "all", deleteConfirm.weekOffset)} style={{ padding: 10, background: "#D45B5B", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete All Instances</button>
-                <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ padding: 10, background: "#F3EFE9", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
+                <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ padding: 10, background: t.cancelBtn, color: t.text, border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
               </div>
             )}
             {!deleteConfirm.isRecurring && !deleteConfirm.isCopyAppt && (
               <div style={{ display: "flex", gap: 10 }}>
-                <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: 10, background: "#F3EFE9", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
+                <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: 10, background: t.cancelBtn, color: t.text, border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
                 <button className="btn" onClick={() => deleteAppt(deleteConfirm.id, "all", deleteConfirm.weekOffset)} style={{ flex: 1, padding: 10, background: "#D45B5B", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Delete</button>
               </div>
             )}
@@ -1185,17 +1219,17 @@ export default function PTScheduler() {
 
       {/* Save scope dialog */}
       {saveConfirm && (
-        <div className="modal-overlay no-print" style={{ position: "fixed", inset: 0, background: "rgba(28,43,58,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
-          <div className="modal-box" style={{ background: "#fff", borderRadius: 14, padding: 26, maxWidth: 340, width: "100%", textAlign: "center" }}>
+        <div className="modal-overlay no-print" style={{ position: "fixed", inset: 0, background: t.overlayStrong, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
+          <div className="modal-box" style={{ background: t.surface, borderRadius: 14, padding: 26, maxWidth: 340, width: "100%", textAlign: "center" }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>✏️</div>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, marginBottom: 7 }}>Save Changes</div>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 16 }}>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, marginBottom: 7, color: t.textPrimary }}>Save Changes</div>
+            <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 16 }}>
               {saveConfirm.isCopyEdit ? "This appointment appears on multiple days via labels." : "This is a recurring appointment."}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <button className="btn" onClick={() => commitSave("one")} style={{ padding: 10, background: "#4CAF8C", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Save This Instance Only</button>
               <button className="btn" onClick={() => commitSave("all")} style={{ padding: 10, background: "#5B8FD4", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Save All Instances</button>
-              <button className="btn" onClick={() => setSaveConfirm(null)} style={{ padding: 10, background: "#F3EFE9", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
+              <button className="btn" onClick={() => setSaveConfirm(null)} style={{ padding: 10, background: t.cancelBtn, color: t.text, border: "none", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>Cancel</button>
             </div>
           </div>
         </div>
