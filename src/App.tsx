@@ -840,7 +840,7 @@ export default function PTScheduler() {
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#4CAF8C,#5B8FD4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>📅</div>
           <div>
-            <div style={{ fontFamily: "'Poppins',sans-serif", fontSize: 17, color: "#fff" }}>Kaylea's Appointment Scheduler</div>
+            <div style={{ fontFamily: "'Poppins',sans-serif", fontSize: 17, color: "#fff" }}>Appointment Scheduler</div>
             <div style={{ fontSize: 10, color: t.navText, letterSpacing: 0.5 }}>Made by her favorite brother-in-law.</div>
           </div>
         </div>
